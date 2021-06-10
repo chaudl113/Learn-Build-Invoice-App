@@ -4,7 +4,7 @@
     ref="invoiceWrap"
     class="invoice-wrap flex flex-column"
   >
-    <form @submit.prevent="sumbitForm" class="invoice-content">
+    <form @submit.prevent="submitForm" class="invoice-content">
       <h1>New Invoice</h1>
       <!-- Bill From -->
       <div class="bill-from flex flex-column">
@@ -135,7 +135,7 @@
               <th class="item-name">Item Name</th>
               <th class="qty">Qty</th>
               <th class="price">Price</th>
-              <th class="tolal">Total</th>
+              <th class="total">Total</th>
             </tr>
             <tr
               class="table-items flex"
@@ -145,9 +145,11 @@
               <td class="item-name">
                 <input type="text" v-model="item.itemName" />
               </td>
-              <td class="qty"><input type="text" v-model="item.qty" /></td>
-              <td class="price"><input type="text" v-model="item.price" /></td>
-              <td class="tolal">{{ (item.total = item.qty * item.price) }}</td>
+              <td class="qty"><input type="number" v-model="item.qty" /></td>
+              <td class="price">
+                <input type="number" v-model="item.price" />
+              </td>
+              <td class="total">{{ (item.total = item.qty * item.price) }}</td>
               <img
                 @click="deleteInvoiceItem(item.id)"
                 src="../assets/icon-delete.svg"
@@ -155,7 +157,7 @@
               />
             </tr>
           </table>
-          <div @click="addNewInvoiceItem" class="flex button">
+          <div @click.prevent="addNewInvoiceItem" class="flex button">
             <img src="../assets/icon-plus.svg" alt="" />
             Add New Item
           </div>
@@ -179,11 +181,12 @@
 
 <script>
 import { mapMutations } from "vuex";
-
+import { uid } from "uid";
 export default {
   name: "invoiceModal",
   data() {
     return {
+      dateOptions: { year: "numeric", month: "short", day: "numeric" },
       billerStreetAddress: null,
       billerCity: null,
       billerZipCode: null,
@@ -206,10 +209,65 @@ export default {
       invoiceTotal: 0,
     };
   },
+  created() {
+    this.invoiceDateUnix = Date.now();
+    this.invoiceDate = new Date(this.invoiceDateUnix).toLocaleDateString(
+      "en-us",
+      this.dateOptions
+    );
+  },
   methods: {
     ...mapMutations(["TOGGLE_INVOICE"]),
     closeInvoice() {
       this.TOGGLE_INVOICE();
+    },
+    addNewInvoiceItem() {
+      let item = {
+        id: uid(),
+        itemName: "",
+        qty: "",
+        price: 0,
+        total: 0,
+      };
+      this.invoiceItemList.push(item);
+    },
+    deleteInvoiceItem(invoiceID) {
+      this.invoiceItemList = this.invoiceItemList.filter(
+        (item) => item.id !== invoiceID
+      );
+    },
+    calInvoiceTotal() {
+      this.invoiceTotal = 0;
+      this.invoiceItemList.forEach((item) => {
+        this.invoiceTotal += item.total;
+      });
+    },
+    publishInvoice() {
+      this.invoicePending = true;
+    },
+    saveDraft() {
+      this.invoiceDraft = true;
+    },
+    uploadInvoice() {
+      if (this.invoiceItemList.length <= 0) {
+        alert("Please esure you filled out work items!!");
+        return;
+      }
+      this.calInvoiceTotal();
+    },
+    submitForm() {
+      this.uploadInvoice();
+    },
+  },
+  watch: {
+    paymentTerms() {
+      const futureDate = new Date();
+      this.paymentDueDateUnix = futureDate.setDate(
+        futureDate.getDate() + parseInt(this.paymentTerms)
+      );
+      this.paymentDueDate = new Date(
+        this.paymentDueDateUnix
+      ).toLocaleDateString("en-us", this.dateOptions);
     },
   },
 };
@@ -217,6 +275,8 @@ export default {
 
 <style lang="scss" scoped>
 .invoice-wrap {
+  z-index: 999;
+
   position: fixed;
   top: 0;
   left: 0;
@@ -284,13 +344,33 @@ export default {
             }
             .qty {
               flex-basis: 10%;
+              input::-webkit-outer-spin-button,
+              input::-webkit-inner-spin-button {
+                /* display: none; <- Crashes Chrome on hover */
+                -webkit-appearance: none;
+                margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+              }
+
+              input[type="number"] {
+                -moz-appearance: textfield; /* Firefox */
+              }
             }
             .price {
               flex-basis: 20%;
+              input::-webkit-outer-spin-button,
+              input::-webkit-inner-spin-button {
+                /* display: none; <- Crashes Chrome on hover */
+                -webkit-appearance: none;
+                margin: 0; /* <-- Apparently some margin are still there even though it's hidden */
+              }
+
+              input[type="number"] {
+                -moz-appearance: textfield; /* Firefox */
+              }
             }
             .total {
               flex-basis: 20%;
-              align-self: center;
+              align-self: center !important;
             }
           }
           .table-heading {
@@ -309,6 +389,7 @@ export default {
               right: 0;
               width: 12px;
               height: 16px;
+              cursor: pointer;
             }
           }
         }

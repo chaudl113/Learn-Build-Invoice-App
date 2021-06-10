@@ -4,7 +4,7 @@ import {
 
 export default createStore({
   state: {
-    invoiceModal: true
+    invoiceModal: null
   },
   mutations: {
     TOGGLE_INVOICE(state) {
