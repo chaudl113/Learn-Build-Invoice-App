@@ -5,6 +5,7 @@
     class="invoice-wrap flex flex-column"
   >
     <form @submit.prevent="submitForm" class="invoice-content">
+      <Loading v-show="loading" />
       <h1>New Invoice</h1>
       <!-- Bill From -->
       <div class="bill-from flex flex-column">
@@ -147,9 +148,9 @@
               </td>
               <td class="qty"><input type="number" v-model="item.qty" /></td>
               <td class="price">
-                <input type="number" v-model="item.price" />
+                <input type="text" v-model="item.price" />
               </td>
-              <td class="total">{{ (item.total = item.qty * item.price) }}</td>
+              <td class="total">${{ (item.total = item.qty * item.price) }}</td>
               <img
                 @click="deleteInvoiceItem(item.id)"
                 src="../assets/icon-delete.svg"
@@ -165,11 +166,15 @@
         <!-- Save/Exit -->
         <div class="save flex">
           <div class="left">
-            <button @click.prevent="closeInvoice" class="red">Cancel</button>
+            <button type="button" @click="closeInvoice" class="red">
+              Cancel
+            </button>
           </div>
           <div class="right flex">
-            <button @click="saveDraft" class="dark-purple">Save Draft</button>
-            <button @click="publishInvoice" class="purple">
+            <button type="submit" @click="saveDraft" class="dark-purple">
+              Save Draft
+            </button>
+            <button type="submit" @click="publishInvoice" class="purple">
               Create Invoice
             </button>
           </div>
@@ -182,11 +187,18 @@
 <script>
 import { mapMutations } from "vuex";
 import { uid } from "uid";
+import db from "../firebase/firebaseInit";
+import Loading from "../components/Loading.vue";
+
 export default {
   name: "invoiceModal",
+  components: {
+    Loading,
+  },
   data() {
     return {
       dateOptions: { year: "numeric", month: "short", day: "numeric" },
+      loading: null,
       billerStreetAddress: null,
       billerCity: null,
       billerZipCode: null,
@@ -217,7 +229,12 @@ export default {
     );
   },
   methods: {
-    ...mapMutations(["TOGGLE_INVOICE"]),
+    ...mapMutations(["TOGGLE_INVOICE", "TOGGLE_MODAL"]),
+    ckeckClick(e) {
+      if (e.target === this.$refs.invoiceWrap) {
+        this.TOGGLE_MODAL();
+      }
+    },
     closeInvoice() {
       this.TOGGLE_INVOICE();
     },
@@ -248,12 +265,43 @@ export default {
     saveDraft() {
       this.invoiceDraft = true;
     },
-    uploadInvoice() {
+    async uploadInvoice() {
       if (this.invoiceItemList.length <= 0) {
         alert("Please esure you filled out work items!!");
         return;
       }
+
+      this.loading = true;
       this.calInvoiceTotal();
+
+      const dataBase = db.collection("invoices").doc();
+      await dataBase.set({
+        invoiceId: uid(6),
+        billerStreetAddress: this.billerStreetAddress,
+        billerCity: this.billerCity,
+        billerZipCode: this.billerZipCode,
+        billerCountry: this.billerCountry,
+        clientName: this.clientName,
+        clientEmail: this.clientEmail,
+        clientStreetAddress: this.clientStreetAddress,
+        clientCity: this.clientCity,
+        clientZipCode: this.clientZipCode,
+        clientCountry: this.clientCountry,
+        invoiceDateUnix: this.invoiceDateUnix,
+        invoiceDate: this.invoiceDate,
+        paymentTerms: this.paymentTerms,
+        paymentDueDateUnix: this.paymentDueDateUnix,
+        paymentDueDate: this.paymentDueDate,
+        productDescription: this.productDescription,
+        invoicePending: this.invoicePending,
+        invoiceDraft: this.invoiceDraft,
+        invoiceItemList: this.invoiceItemList,
+        invoiceTotal: this.invoiceTotal,
+        invoicePaid: null,
+      });
+      this.loading = false;
+
+      this.TOGGLE_INVOICE();
     },
     submitForm() {
       this.uploadInvoice();
@@ -275,7 +323,7 @@ export default {
 
 <style lang="scss" scoped>
 .invoice-wrap {
-  z-index: 999;
+  z-index: 100;
 
   position: fixed;
   top: 0;
@@ -427,13 +475,24 @@ export default {
   input,
   select {
     width: 100%;
-    background-color: #1e2139;
-    color: #fff;
+    background-color: #1e2139 !important;
+    color: #fff !important;
     border: none;
     border-radius: 4px;
     padding: 12px 4px;
     &:focus {
       outline: none;
+    }
+
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus,
+    &:-webkit-autofill:active {
+      //   -webkit-box-shadow: 0 0 0 30px #1e2139 inset !important;
+      border: 1px solid #1e2139;
+      transition: background-color 5000s ease-in-out 0s;
+      -webkit-box-shadow: 0 0 0px 1000px #1e2139 inset;
+      -webkit-text-fill-color: #fff !important;
     }
   }
 }
